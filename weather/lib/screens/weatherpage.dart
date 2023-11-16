@@ -3,19 +3,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
-import 'package:weather/processing/forecastIcons.dart';
-import 'package:weather/main.dart';
-import 'package:weather/processing/weatherforecast.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:weather/processing/secrets.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
+
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weather/main.dart';
+import 'package:weather/processing/forecastIcons.dart';
+import 'package:weather/processing/secrets.dart';
+import 'package:weather/processing/weatherforecast.dart';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
@@ -42,23 +43,35 @@ class _WeatherPageState extends State<WeatherPage> {
 
     Timer.periodic(checkInterval, (Timer timer)async {
       bool isConnected = await InternetConnectionChecker().hasConnection;
-      if(isConnected == true && status == false){
+      if(isConnected == true && status == false) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Center(child: Text('Connection restored',style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold))),
-              backgroundColor: Colors.green, duration: Duration(seconds: 3),
+          const SnackBar(
+            content: Center(
+                child: Text('Connection restored',
+                    style: TextStyle(
+                        fontFamily: 'Poppins', fontWeight: FontWeight.bold))),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
         fetchLocationAndCallAPI();
         weather = getWeather(location);
         status = true;
-
-      }
-      else if(isConnected == false && status == true){
+      } else if(isConnected == false && status == true){
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Center(child: Text('No Connection', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),)),
-              backgroundColor: Colors.red, duration: Duration(seconds: 3)),
+          const SnackBar(
+              content: Center(
+                  child: Text(
+                'No Connection',
+                style: TextStyle(
+                    fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+              )),
+              backgroundColor: Colors.red,
+              duration: Duration(days: 1)),
         );
         const Center(child: CircularProgressIndicator.adaptive());
         status = false;
@@ -125,8 +138,8 @@ class _WeatherPageState extends State<WeatherPage> {
     List<Placemark> placemarks =
         await placemarkFromCoordinates(position.latitude, position.longitude);
     Placemark place = placemarks[0];
-    completeLocation = '${place.street} , ${place.locality}, '
-        '${place.subAdministrativeArea}, ${place.administrativeArea}, ${place.country}, ${place.postalCode}';
+    completeLocation = '${place.locality}, '
+        '${place.administrativeArea}, ${place.country}, ${place.postalCode}';
     location = '${place.locality}';
     return location;
   }
@@ -143,7 +156,7 @@ class _WeatherPageState extends State<WeatherPage> {
     try {
       result = await http.get(
         Uri.parse(
-            'http://api.weatherapi.com/v1/forecast.json?key=$apikey&q=$completeLocation&days=7&aqi=yes'), //API
+            'http://api.weatherapi.com/v1/forecast.json?key=$apikey&q=$location&days=7&aqi=yes'), //API
       );
     } catch (e) {
       throw const SocketException("No internet Connection");
@@ -164,13 +177,14 @@ class _WeatherPageState extends State<WeatherPage> {
   }
 
   Future<Map<String, dynamic>> fetchLocationAndCallAPI() async {
+    String locality;
     Position position = await _getPosition();
-    String locality = await GetAddressFromLatLong(position);
+    locality = await GetAddressFromLatLong(position);
     if (kDebugMode) {
       print("Initial Location: $completeLocation");
     }
     setState(() {
-      location = locality;
+      completeLocation = locality;
       weather = getWeather(locality);
     });
     return weather;
@@ -213,10 +227,16 @@ class _WeatherPageState extends State<WeatherPage> {
                         decoration: const InputDecoration(
                           labelText: "Location",
                           icon: Icon(Icons.location_on),
-                          helperText: "For accurate location, \nplease provide detailed address.",
+                          helperText:
+                              "For accurate location, \nplease provide detailed address.",
                         ),
                         keyboardType: TextInputType.streetAddress,
                         maxLength: 50,
+                        onChanged: (value) {
+                          if (textEditingController.text.startsWith(' ')) {
+                            textEditingController.clear();
+                          }
+                        },
                       ),
                     ),
                     Row(
@@ -235,10 +255,19 @@ class _WeatherPageState extends State<WeatherPage> {
                               left: 8.0, top: 8.0, bottom: 8.0),
                           child: IconButton(
                             onPressed: () {
-                              location = textEditingController.text;
+                              if (kDebugMode) {
+                                print(textEditingController.text.length);
+                              }
+                              if (textEditingController.text.isEmpty) {
+                                Navigator.of(context).pop();
+                              }
+                              completeLocation = textEditingController.text;
+                              if (kDebugMode) {
+                                print('testing check button: $location');
+                              }
                               textEditingController.clear();
                               setState(() {
-                                weather = getWeather(location);
+                                weather = getWeather(completeLocation);
                               });
                               Navigator.of(context).pop();
                             },
@@ -265,7 +294,7 @@ class _WeatherPageState extends State<WeatherPage> {
           IconButton(
               onPressed: () {
                 setState(() {
-                  weather = getWeather(location);
+                  weather = getWeather(completeLocation);
                 });
               },
               icon: const Icon(Icons.refresh)),
@@ -318,8 +347,11 @@ class _WeatherPageState extends State<WeatherPage> {
                 CircularProgressIndicator.adaptive(),
                 Padding(
                   padding: EdgeInsets.all(8.0),
-                  child: Text("Unable To Load Data",
-                  style: TextStyle(fontFamily: 'Poppins',fontWeight: FontWeight.bold),),
+                  child: Text(
+                    "Unable to load data, retrying...",
+                    style: TextStyle(
+                        fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ));
@@ -643,7 +675,7 @@ class _WeatherPageState extends State<WeatherPage> {
                   //space in between
                   const SizedBox(height: 20),
                   //space in between
-                   const Center(
+                  const Center(
                     child: Padding(
                       padding: EdgeInsets.only(bottom: 2),
                       child: Text(
