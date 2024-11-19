@@ -547,7 +547,7 @@ class _WeatherPageState extends State<WeatherPage> {
                   SizedBox(
                     height: 120,
                     child: ListView.builder(
-                      itemCount: 7,
+                      itemCount: 3,
                       scrollDirection: Axis.horizontal,
                       itemBuilder: (context, index) {
                         return WeatherForecast(
